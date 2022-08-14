@@ -3,6 +3,21 @@ import numpy as np
 from PIL import Image
 import cv2, os, urllib, time
 import certifi, ssl
+import argparse
+import time
+from pathlib import Path
+
+import cv2
+import torch
+import torch.backends.cudnn as cudnn
+from numpy import random
+
+from models.experimental import attempt_load
+from utils.datasets import LoadStreams, LoadImages
+from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
+    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
+from utils.plots import plot_one_box
+from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
 def main():
     # User interface
@@ -12,176 +27,176 @@ def main():
         'Option',
         ('Image', 'Camera'))
     
-    # Download external dependencies.
-    # for filename in EXTERNAL_DEPENDENCIES.keys():
-    #     download_file(filename)
+    os.system('wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7')
+    os.system('wget https://raw.githubusercontent.com/WongKinYiu/yolov7/main/data/coco.yaml')
+    os.system('wget https://raw.githubusercontent.com/WongKinYiu/yolov7/main/cfg/training/yolov7.yaml')
     
     # if user choose 'Image'
     if option == 'Image':
         image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
 
-        # if image_file is not None:
-        #     image = Image.open(image_file)
-        #     image_BGR = np.array(image)
-        #     general(image_BGR)
 
+# def detect(img,model):
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--weights', nargs='+', type=str, default=model+".pt", help='model.pt path(s)')
+#     parser.add_argument('--source', type=str, default='Inference/', help='source')  # file/folder, 0 for webcam
+#     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
+#     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
+#     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+#     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+#     parser.add_argument('--view-img', action='store_true', help='display results')
+#     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
+#     parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
+#     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
+#     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
+#     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
+#     parser.add_argument('--augment', action='store_true', help='augmented inference')
+#     parser.add_argument('--update', action='store_true', help='update all models')
+#     parser.add_argument('--project', default='runs/detect', help='save results to project/name')
+#     parser.add_argument('--name', default='exp', help='save results to project/name')
+#     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
+#     parser.add_argument('--trace', action='store_true', help='trace model')
+#     opt = parser.parse_args()
+#     img.save("Inference/test.jpg")
+#     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
+#     save_img = True  # save inference images
+#     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
+#         ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
-# # This file downloader demonstrates Streamlit animation.
-# def download_file(file_path):
-#     # Don't download the file twice. (If possible, verify the download using the file length.)
-#     if os.path.exists(file_path):
-#         if "size" not in EXTERNAL_DEPENDENCIES[file_path]:
-#             return
-#         elif os.path.getsize(file_path) == EXTERNAL_DEPENDENCIES[file_path]["size"]:
-#             return
+#     # Directories
+#     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
+#     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
-#     # These are handles to two visual elements to animate.
-#     weights_warning, progress_bar = None, None
-#     try:
-#         weights_warning = st.warning("Downloading...")
-#         progress_bar = st.progress(0)
-#         with open(file_path, "wb") as output_file:
-#             # with urllib.request.urlopen(EXTERNAL_DEPENDENCIES[file_path]["url"]) as response:
-#             with urllib.request.urlopen(EXTERNAL_DEPENDENCIES[file_path]["url"], context=ssl.create_default_context(cafile=certifi.where())) as response:
-#                 length = int(response.info()["Content-Length"]) 
-#                 counter = 0
-#                 # MEGABYTES = 2.0 ** 20.0
-#                 while True:
-#                     data = response.read(8192)
-#                     if not data:
-#                         break
-#                     counter += len(data)
-#                     output_file.write(data)
+#     # Initialize
+#     set_logging()
+#     device = select_device(opt.device)
+#     half = device.type != 'cpu'  # half precision only supported on CUDA
 
-#                     # We perform animation by overwriting the elements.
-#                     weights_warning.warning(f"Downloading... {int((counter/length)*100)}%" )
-#                     progress_bar.progress(min(counter / length, 1.0))
+#     # Load model
+#     model = attempt_load(weights, map_location=device)  # load FP32 model
+#     stride = int(model.stride.max())  # model stride
+#     imgsz = check_img_size(imgsz, s=stride)  # check img_size
 
-#     # Finally, we remove these visual elements by calling .empty().
-#     finally:
-#         if weights_warning is not None:
-#             weights_warning.empty()
-#         if progress_bar is not None:
-#             progress_bar.empty()
+#     if trace:
+#         model = TracedModel(model, device, opt.img_size)
 
+#     if half:
+#         model.half()  # to FP16
 
-# # yolov3 working included here
-# def yolo7(image_RGB):
-#     # making list of coco.names (80 elements)
-#     with open("coco.yaml") as f:
-#         labels = [line.strip() for line in f]
+#     # Second-stage classifier
+#     classify = False
+#     if classify:
+#         modelc = load_classifier(name='resnet101', n=2)  # initialize
+#         modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model']).to(device).eval()
 
-#     # Load the network. Because this is cached it will only happen once.
-#     @st.cache(allow_output_mutation=True)
-#     def load_network(config_path, weights_path):
-#         network = cv2.dnn.readNetFromDarknet(config_path, weights_path)
-#         layers_names_all = network.getLayerNames()
-#         layers_names_output = [layers_names_all[i - 1] for i in network.getUnconnectedOutLayers()]
-#         return network, layers_names_output
-#     network, layers_names_output = load_network("yolov4.cfg", "yolov4.weights")
-
-#     # setting requirements to filter detected objects
-#     target_items = ['tvmonitor',
-#                     'laptop',
-#                     'mouse',
-#                     'remote',
-#                     'keyboard',
-#                     'cell phone',
-#                     'microwave',
-#                     'oven',
-#                     'toaster',
-#                     'refrigerator',
-#                     'hair drier']
-#     probability_minimum = 0.5
-#     threshold = 0.3
-
-#     # assigning variables for future use
-#     bounding_boxes, confidences, class_numbers = [],[],[]
-#     h, w = image_RGB.shape[:2]
-
-#     # creating blob & forward pass
-#     blob = cv2.dnn.blobFromImage(image_RGB, 1 / 255.0, (416, 416), swapRB=True, crop=False)
-#     network.setInput(blob)  
-#     output_from_network = network.forward(layers_names_output)
-
-#     # extracting needed information for NMS
-#     for result in output_from_network:
-#         for detected_objects in result:
-#             scores = detected_objects[5:]
-#             class_current = np.argmax(scores)
-#             confidence_current = scores[class_current]
-
-#             if confidence_current > probability_minimum:
-#                 box_current = detected_objects[0:4] * np.array([w, h, w, h])
-
-#                 x_center, y_center, box_width, box_height = box_current
-#                 x_min = int(x_center - (box_width / 2))
-#                 y_min = int(y_center - (box_height / 2))
-
-#                 bounding_boxes.append([x_min, y_min, int(box_width), int(box_height)])
-#                 confidences.append(float(confidence_current))
-#                 class_numbers.append(class_current)
-    
-#     # Non-maximum Suppression
-#     results = cv2.dnn.NMSBoxes(bounding_boxes, confidences,
-#                                probability_minimum, threshold)
-
-#     # extracting needed information for final output
-#     counter = 1
-#     description = str()
-#     if len(results) > 0:
-#         description = str()
-#         for i in results.flatten():
-#             if (labels[int(class_numbers[i])]) in target_items:
-#                 description = description + f'Object {counter}: {labels[int(class_numbers[i])]}' + "\n"
-
-#                 counter += 1
-
-#                 x_min, y_min = bounding_boxes[i][0], bounding_boxes[i][1]
-#                 box_width, box_height = bounding_boxes[i][2], bounding_boxes[i][3]
-
-#                 cv2.rectangle(image_RGB, (x_min, y_min),
-#                             (x_min + box_width, y_min + box_height),
-#                             (0,255,0), 2)
-
-#                 text_box_current = str(labels[int(class_numbers[i])])
-
-#                 cv2.putText(image_RGB, text_box_current, (x_min, y_min - 5),
-#                             cv2.FONT_HERSHEY_COMPLEX, 0.7, (0,255,0), 2)
-
-
-#     return image_RGB, description
-
-# # Function used by both image and camera option
-# def general(image_BGR):
-#     # A spinner while result image is still in progress
-#     with st.spinner('Wait for it...'):
-#         time.sleep(5)
-
-#     # connect to yolo3 function and output the final result on streamlit app
-#     image_BGR, description = yolo7(image_BGR)
-
-#     if len(description) == 0:
-#         st.image(image_BGR, caption='No electronic item in the image')
+#     # Set Dataloader
+#     vid_path, vid_writer = None, None
+#     if webcam:
+#         view_img = check_imshow()
+#         # cudnn.benchmark = True  # set True to speed up constant image size inference
+#         dataset = LoadStreams(source, img_size=imgsz, stride=stride)
 #     else:
-#         st.image(image_BGR,caption='There is electronic item(s) in the image')
-#         st.text(description)
+#         dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
-# # External files to download.
-# EXTERNAL_DEPENDENCIES = {
-#     "yolov7.weights": {
-#         "url": "https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt",
-#         "size": 141000
-#     },
-#     "yolov7.yaml": {
-#         "url": "https://raw.githubusercontent.com/WongKinYiu/yolov7/main/cfg/training/yolov7.yaml",
-#         "size": 3.91
-#     },
-#     "coco.yaml": {
-#         "url": "https://raw.githubusercontent.com/WongKinYiu/yolov7/main/data/coco.yaml",
-#         "size": 1.39
-#     }
-# }
+#     # Get names and colors
+#     names = model.module.names if hasattr(model, 'module') else model.names
+#     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+
+#     # Run inference
+#     if device.type != 'cpu':
+#         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
+#     t0 = time.time()
+#     for path, img, im0s, vid_cap in dataset:
+#         img = torch.from_numpy(img).to(device)
+#         img = img.half() if half else img.float()  # uint8 to fp16/32
+#         img /= 255.0  # 0 - 255 to 0.0 - 1.0
+#         if img.ndimension() == 3:
+#             img = img.unsqueeze(0)
+
+#         # Inference
+#         t1 = time_synchronized()
+#         pred = model(img, augment=opt.augment)[0]
+
+#         # Apply NMS
+#         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+#         t2 = time_synchronized()
+
+#         # Apply Classifier
+#         if classify:
+#             pred = apply_classifier(pred, modelc, img, im0s)
+
+#         # Process detections
+#         for i, det in enumerate(pred):  # detections per image
+#             if webcam:  # batch_size >= 1
+#                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
+#             else:
+#                 p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
+
+#             p = Path(p)  # to Path
+#             save_path = str(save_dir / p.name)  # img.jpg
+#             txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
+#             s += '%gx%g ' % img.shape[2:]  # print string
+#             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+#             if len(det):
+#                 # Rescale boxes from img_size to im0 size
+#                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+
+#                 # Print results
+#                 for c in det[:, -1].unique():
+#                     n = (det[:, -1] == c).sum()  # detections per class
+#                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
+
+#                 # Write results
+#                 for *xyxy, conf, cls in reversed(det):
+#                     if save_txt:  # Write to file
+#                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+#                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+#                         with open(txt_path + '.txt', 'a') as f:
+#                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
+
+#                     if save_img or view_img:  # Add bbox to image
+#                         label = f'{names[int(cls)]} {conf:.2f}'
+#                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+
+#             # Print time (inference + NMS)
+#             #print(f'{s}Done. ({t2 - t1:.3f}s)')
+
+#             # Stream results
+#             if view_img:
+#                 cv2.imshow(str(p), im0)
+#                 cv2.waitKey(1)  # 1 millisecond
+
+#             # Save results (image with detections)
+#             if save_img:
+#                 if dataset.mode == 'image':
+#                     cv2.imwrite(save_path, im0)
+#                 else:  # 'video' or 'stream'
+#                     if vid_path != save_path:  # new video
+#                         vid_path = save_path
+#                         if isinstance(vid_writer, cv2.VideoWriter):
+#                             vid_writer.release()  # release previous video writer
+#                         if vid_cap:  # video
+#                             fps = vid_cap.get(cv2.CAP_PROP_FPS)
+#                             w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+#                             h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+#                         else:  # stream
+#                             fps, w, h = 30, im0.shape[1], im0.shape[0]
+#                             save_path += '.mp4'
+#                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+#                     vid_writer.write(im0)
+
+#     if save_txt or save_img:
+#         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
+#         #print(f"Results saved to {save_dir}{s}")
+
+#     print(f'Done. ({time.time() - t0:.3f}s)')
+
+#     return Image.fromarray(im0[:,:,::-1])
+
+   
+# gr.Interface(detect,[gr.Image(type="pil"),gr.Dropdown(choices=["yolov7","yolov7-e6"])], gr.Image(type="pil"),title="Yolov7",examples=[["horses.jpeg", "yolov7"]],description="demo for <a href='https://github.com/WongKinYiu/yolov7' style='text-decoration: underline' target='_blank'>WongKinYiu/yolov7</a> Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors").launch()
+
+
 
 if __name__ == "__main__":
     main()

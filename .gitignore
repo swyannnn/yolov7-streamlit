@@ -22,6 +22,7 @@
 *.cfg
 *.names
 *.weights
+*.yaml
 !setup.cfg
 !cfg/yolov3*.cfg
 
