@@ -19,6 +19,9 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
+import cv2
+import matplotlib.pyplot as plt
+
 def main():
     # User interface
     st.title("Scanning electronic items")
@@ -34,29 +37,44 @@ def main():
     # if user choose 'Image'
     if option == 'Image':
         image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
+        if image_file is not None:
+            detect(image_file,'yolov7')
+            imShow('test.jpg')
 
+def detect(img,model):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--weights', nargs='+', type=str, default=model+".pt", help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default='Inference/', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
+    parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+    parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--view-img', action='store_false', help='display results')
+    parser.add_argument('--save-txt', action='store_false', help='save results to *.txt')
+    parser.add_argument('--save-conf', action='store_false', help='save confidences in --save-txt labels')
+    parser.add_argument('--nosave', action='store_false', help='do not save images/videos')
+    parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
+    parser.add_argument('--agnostic-nms', action='store_false', help='class-agnostic NMS')
+    parser.add_argument('--augment', action='store_false', help='augmented inference')
+    parser.add_argument('--update', action='store_false', help='update all models')
+    parser.add_argument('--project', default='runs/detect', help='save results to project/name')
+    parser.add_argument('--name', default='exp', help='save results to project/name')
+    parser.add_argument('--exist-ok', action='store_false', help='existing project/name ok, do not increment')
+    parser.add_argument('--trace', action='store_true', help='trace model')
+    opt = parser.parse_args()
+    st.text('here')
 
-# def detect(img,model):
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('--weights', nargs='+', type=str, default=model+".pt", help='model.pt path(s)')
-#     parser.add_argument('--source', type=str, default='Inference/', help='source')  # file/folder, 0 for webcam
-#     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-#     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
-#     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
-#     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-#     parser.add_argument('--view-img', action='store_true', help='display results')
-#     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-#     parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
-#     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
-#     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
-#     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-#     parser.add_argument('--augment', action='store_true', help='augmented inference')
-#     parser.add_argument('--update', action='store_true', help='update all models')
-#     parser.add_argument('--project', default='runs/detect', help='save results to project/name')
-#     parser.add_argument('--name', default='exp', help='save results to project/name')
-#     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
-#     parser.add_argument('--trace', action='store_true', help='trace model')
-#     opt = parser.parse_args()
+def imShow(path):
+    image = cv2.imread(path)
+    height, width = image.shape[:2]
+    resized_image = cv2.resize(image,(3*width, 3*height), interpolation = cv2.INTER_CUBIC)
+
+    fig = plt.gcf()
+    fig.set_size_inches(18, 10)
+    plt.axis("off")
+    plt.imshow(cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB))
+    plt.show()
+    st.image(cv2.cvtColor(resized_image, cv2.COLOR_RGB2BGR))
 #     img.save("Inference/test.jpg")
 #     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
 #     save_img = True  # save inference images
@@ -68,8 +86,8 @@ def main():
 #     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
 #     # Initialize
-#     set_logging()
-#     device = select_device(opt.device)
+    # set_logging()
+    # device = select_device(opt.device)
 #     half = device.type != 'cpu'  # half precision only supported on CUDA
 
 #     # Load model
