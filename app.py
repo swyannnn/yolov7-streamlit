@@ -58,7 +58,7 @@ def detect(img):
     parser.add_argument('--trace', action='store_true', help='trace model')
     opt = parser.parse_args()
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
-    save_img = True
+    save_img = False
 
     # Directories
     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
