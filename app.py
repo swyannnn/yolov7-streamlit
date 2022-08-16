@@ -62,122 +62,102 @@ def detect(img,model):
     parser.add_argument('--exist-ok', action='store_false', help='existing project/name ok, do not increment')
     parser.add_argument('--trace', action='store_true', help='trace model')
     opt = parser.parse_args()
-    st.text('here')
 
-def imShow(path):
-    image = cv2.imread(path)
-    height, width = image.shape[:2]
-    resized_image = cv2.resize(image,(3*width, 3*height), interpolation = cv2.INTER_CUBIC)
+    source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
+    save_img = True  # save inference images
+    webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
+        ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
-    fig = plt.gcf()
-    fig.set_size_inches(18, 10)
-    plt.axis("off")
-    plt.imshow(cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB))
-    plt.show()
-    st.image(cv2.cvtColor(resized_image, cv2.COLOR_RGB2BGR))
-#     img.save("Inference/test.jpg")
-#     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
-#     save_img = True  # save inference images
-#     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
-#         ('rtsp://', 'rtmp://', 'http://', 'https://'))
+    # # Directories
+    # save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
+    # (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
-#     # Directories
-#     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
-#     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+    # Initialize
+    set_logging()
+    device = select_device(opt.device)
 
-#     # Initialize
-    # set_logging()
-    # device = select_device(opt.device)
-#     half = device.type != 'cpu'  # half precision only supported on CUDA
+    # Load model
+    model = attempt_load(weights, map_location=device)  # load FP32 model
+    stride = int(model.stride.max())  # model stride
+    imgsz = check_img_size(imgsz, s=stride)  # check img_size
 
-#     # Load model
-#     model = attempt_load(weights, map_location=device)  # load FP32 model
-#     stride = int(model.stride.max())  # model stride
-#     imgsz = check_img_size(imgsz, s=stride)  # check img_size
+    if trace:
+        model = TracedModel(model, device, opt.img_size)
 
-#     if trace:
-#         model = TracedModel(model, device, opt.img_size)
+    # Second-stage classifier
+    classify = False
+    if classify:
+        modelc = load_classifier(name='resnet101', n=2)  # initialize
+        modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model']).to(device).eval()
 
-#     if half:
-#         model.half()  # to FP16
+    # Set Dataloader
+    vid_path, vid_writer = None, None
+    if webcam:
+        view_img = check_imshow()
+        cudnn.benchmark = True  # set True to speed up constant image size inference
+        dataset = LoadStreams(source, img_size=imgsz, stride=stride)
+    else:
+        dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
-#     # Second-stage classifier
-#     classify = False
-#     if classify:
-#         modelc = load_classifier(name='resnet101', n=2)  # initialize
-#         modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model']).to(device).eval()
+    # Get names and colors
+    names = model.module.names if hasattr(model, 'module') else model.names
+    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
 
-#     # Set Dataloader
-#     vid_path, vid_writer = None, None
-#     if webcam:
-#         view_img = check_imshow()
-#         # cudnn.benchmark = True  # set True to speed up constant image size inference
-#         dataset = LoadStreams(source, img_size=imgsz, stride=stride)
-#     else:
-#         dataset = LoadImages(source, img_size=imgsz, stride=stride)
+    # Run inference
+    if device.type != 'cpu':
+        model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
+    t0 = time.time()
+    for path, img, im0s, vid_cap in dataset:
+        img = torch.from_numpy(img).to(device)
+        img = img.half() if half else img.float()  # uint8 to fp16/32
+        img /= 255.0  # 0 - 255 to 0.0 - 1.0
+        if img.ndimension() == 3:
+            img = img.unsqueeze(0)
 
-#     # Get names and colors
-#     names = model.module.names if hasattr(model, 'module') else model.names
-#     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+        # Inference
+        t1 = time_synchronized()
+        pred = model(img, augment=opt.augment)[0]
 
-#     # Run inference
-#     if device.type != 'cpu':
-#         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
-#     t0 = time.time()
-#     for path, img, im0s, vid_cap in dataset:
-#         img = torch.from_numpy(img).to(device)
-#         img = img.half() if half else img.float()  # uint8 to fp16/32
-#         img /= 255.0  # 0 - 255 to 0.0 - 1.0
-#         if img.ndimension() == 3:
-#             img = img.unsqueeze(0)
+        # Apply NMS
+        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        t2 = time_synchronized()
 
-#         # Inference
-#         t1 = time_synchronized()
-#         pred = model(img, augment=opt.augment)[0]
+        # Apply Classifier
+        if classify:
+            pred = apply_classifier(pred, modelc, img, im0s)
 
-#         # Apply NMS
-#         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
-#         t2 = time_synchronized()
+        # Process detections
+        for i, det in enumerate(pred):  # detections per image
+            if webcam:  # batch_size >= 1
+                p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
+            else:
+                p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
 
-#         # Apply Classifier
-#         if classify:
-#             pred = apply_classifier(pred, modelc, img, im0s)
+            p = Path(p)  # to Path
+            save_path = str(save_dir / p.name)  # img.jpg
+            txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
+            s += '%gx%g ' % img.shape[2:]  # print string
+            gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+            if len(det):
+                # Rescale boxes from img_size to im0 size
+                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
-#         # Process detections
-#         for i, det in enumerate(pred):  # detections per image
-#             if webcam:  # batch_size >= 1
-#                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
-#             else:
-#                 p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
+                # Print results
+                for c in det[:, -1].unique():
+                    n = (det[:, -1] == c).sum()  # detections per class
+                    s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
-#             p = Path(p)  # to Path
-#             save_path = str(save_dir / p.name)  # img.jpg
-#             txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
-#             s += '%gx%g ' % img.shape[2:]  # print string
-#             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
-#             if len(det):
-#                 # Rescale boxes from img_size to im0 size
-#                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                # Write results
+                for *xyxy, conf, cls in reversed(det):
+                    if save_txt:  # Write to file
+                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                        line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+                        with open(txt_path + '.txt', 'a') as f:
+                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
-#                 # Print results
-#                 for c in det[:, -1].unique():
-#                     n = (det[:, -1] == c).sum()  # detections per class
-#                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
-
-#                 # Write results
-#                 for *xyxy, conf, cls in reversed(det):
-#                     if save_txt:  # Write to file
-#                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-#                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
-#                         with open(txt_path + '.txt', 'a') as f:
-#                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
-
-#                     if save_img or view_img:  # Add bbox to image
-#                         label = f'{names[int(cls)]} {conf:.2f}'
-#                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-
-#             # Print time (inference + NMS)
-#             #print(f'{s}Done. ({t2 - t1:.3f}s)')
+                    if save_img or view_img:  # Add bbox to image
+                        label = f'{names[int(cls)]} {conf:.2f}'
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
 
 #             # Stream results
 #             if view_img:
@@ -187,6 +167,7 @@ def imShow(path):
 #             # Save results (image with detections)
 #             if save_img:
 #                 if dataset.mode == 'image':
+#                     st.image(im0)
 #                     cv2.imwrite(save_path, im0)
 #                 else:  # 'video' or 'stream'
 #                     if vid_path != save_path:  # new video
@@ -206,15 +187,21 @@ def imShow(path):
 #     if save_txt or save_img:
 #         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
 #         #print(f"Results saved to {save_dir}{s}")
-
-#     print(f'Done. ({time.time() - t0:.3f}s)')
-
 #     return Image.fromarray(im0[:,:,::-1])
 
    
-# gr.Interface(detect,[gr.Image(type="pil"),gr.Dropdown(choices=["yolov7","yolov7-e6"])], gr.Image(type="pil"),title="Yolov7",examples=[["horses.jpeg", "yolov7"]],description="demo for <a href='https://github.com/WongKinYiu/yolov7' style='text-decoration: underline' target='_blank'>WongKinYiu/yolov7</a> Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors").launch()
 
+def imShow(path):
+    image = cv2.imread(path)
+    height, width = image.shape[:2]
+    resized_image = cv2.resize(image,(3*width, 3*height), interpolation = cv2.INTER_CUBIC)
 
+    fig = plt.gcf()
+    fig.set_size_inches(18, 10)
+    plt.axis("off")
+    plt.imshow(cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB))
+    plt.show()
+    st.image(cv2.cvtColor(resized_image, cv2.COLOR_RGB2BGR))
 
 if __name__ == "__main__":
     main()
