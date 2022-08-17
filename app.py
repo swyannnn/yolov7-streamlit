@@ -2,7 +2,6 @@ import os
 import streamlit as st
 import argparse
 from pathlib import Path
-# os.system("wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt")
 import cv2, torch
 import torch.backends.cudnn as cudnn
 from numpy import random
@@ -12,6 +11,9 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
+# download yolov7.pt if not already
+if not os.path.exists('yolov7.pt'):
+    os.system("wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt")
 
 def main():
     #remove previous image
@@ -53,16 +55,16 @@ def detect(img):
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
-    parser.add_argument('--project', default='runs/detect', help='save results to project/name')
-    parser.add_argument('--name', default='exp', help='save results to project/name')
+    # parser.add_argument('--project', default='runs/detect', help='save results to project/name')
+    # parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--trace', action='store_true', help='trace model')
     opt = parser.parse_args()
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
 
     # Directories
-    save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
-    (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+    # save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
+    # (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
     # Initialize
     set_logging()
