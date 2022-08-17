@@ -21,13 +21,13 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 from PIL import Image
 
 def main():
+    # os.rmdir('Inference')
     # User interface
     st.title("Scanning electronic items")
 
     option = st.sidebar.selectbox(
         'Option',
         ('Image', 'Camera'))
-    
     
     # if user choose 'Image'
     if option == 'Image':
@@ -67,6 +67,7 @@ def detect(img):
     # Initialize
     set_logging()
     device = select_device(opt.device)
+    half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model
     model = attempt_load(weights, map_location=device)  # load FP32 model
@@ -76,6 +77,9 @@ def detect(img):
     if trace:
         model = TracedModel(model, device, opt.img_size)
     
+    if half:
+        model.half()  # to FP16
+
     # Second-stage classifier
     classify = False
     if classify:
@@ -90,6 +94,9 @@ def detect(img):
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
 
     # Run inference
+    if device.type != 'cpu':
+        model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
+    
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.float()  # uint8 to fp16/32
@@ -136,14 +143,15 @@ def detect(img):
                             label = f'{names[int(cls)]} {conf:.2f}'
                             plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
 
-            if save_img:
-                if dataset.mode == 'image':
-                    cv2.imwrite(save_path, im0)
-                    st.image(save_path)
+            # if save_img:
+            #     if dataset.mode == 'image':
+            #         cv2.imwrite(save_path, im0)
+            im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
+            st.image(im0)
 
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-        st.text(s)
+        print(f"Results saved to {save_dir}{s}")
                     
 def save_uploadedfile(uploadedfile):
      with open(os.path.join("Inference",uploadedfile.name),"wb") as f:
