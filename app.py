@@ -1,24 +1,17 @@
 import os
 import streamlit as st
-
-os.system("wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt")
-
 import argparse
-import time
 from pathlib import Path
-
-import cv2
-import torch
+# os.system("wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt")
+import cv2, torch
 import torch.backends.cudnn as cudnn
 from numpy import random
-
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
-from PIL import Image
 
 def main():
     #remove previous image
@@ -28,23 +21,28 @@ def main():
     # User interface
     st.title("Scanning electronic items")
 
-    option = st.sidebar.selectbox(
-        'Option',
-        ('Image', 'Camera'))
+    image, camera = st.tabs(["Image", "Camera"])
     
     # if user choose 'Image'
-    if option == 'Image':
+    with image:
         image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
         if image_file is not None:
             save_uploadedfile(image_file)
             detect(image_file)
+    
+    # if user choose 'Camera'
+    with camera:
+        img_file_buffer = st.camera_input("Take a picture")
+        if img_file_buffer:
+            save_uploadedfile(img_file_buffer)
+            detect(img_file_buffer)
 
 def detect(img):
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default="yolov7.pt", help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='Inference/', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.6, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
@@ -61,7 +59,6 @@ def detect(img):
     parser.add_argument('--trace', action='store_true', help='trace model')
     opt = parser.parse_args()
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
-    save_img = False
 
     # Directories
     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
@@ -108,7 +105,7 @@ def detect(img):
             img = img.unsqueeze(0)
 
         # Inference
-        pred = model(img, augment=opt.augment)[0]
+        pred = model(img)[0]
 
         # Apply NMS
         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
@@ -120,46 +117,30 @@ def detect(img):
         for i, det in enumerate(pred):
             p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
 
-            p = Path(p)  # to Path
-            save_path = str(save_dir / p.name)  # img.jpg
-            txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
-            s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
-                # Print results
-                for c in det[:, -1].unique():
-                    n = (det[:, -1] == c).sum()  # detections per class
-                    s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
-
-                # Write results
+                # Add bbox to image
                 for *xyxy, conf, cls in reversed(det):
-                    if save_txt:  # Write to file
-                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
-                        with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
+                    label = names[int(cls)]
+                    target = ['tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+                            'microwave', 'oven', 'toaster', 'refrigerator', 'hair drier']
+                    if label in target:
+                        plot_one_box(xyxy, im0, label=label, color=[0,255,0], line_thickness=3)
 
-                    if save_img or view_img:  # Add bbox to image
-                            label = f'{names[int(cls)]} {conf:.2f}'
-                            plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-                            st.image(im0)
-            # if save_img:
-            #     if dataset.mode == 'image':
-            #         cv2.imwrite(save_path, im0)
-            # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
-            # st.image(im0)
 
-    if save_txt or save_img:
-        s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-        print(f"Results saved to {save_dir}{s}")
+        # display image in st
+        im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
+        st.image(im0)
+
                     
 def save_uploadedfile(uploadedfile):
-     with open(os.path.join("Inference",uploadedfile.name),"wb") as f:
+    #  with open(os.path.join("Inference",uploadedfile.name),"wb") as f:
+    with open(os.path.join("Inference/current.jpg"),"wb") as f:
          f.write(uploadedfile.getbuffer())
-     return True
+    return True
 
 
 if __name__ == "__main__":
