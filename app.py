@@ -21,7 +21,10 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 from PIL import Image
 
 def main():
-    # os.rmdir('Inference')
+    #remove previous image
+    for file in os.listdir('Inference'):
+            os.remove('Inference/'+file) 
+
     # User interface
     st.title("Scanning electronic items")
 
@@ -142,12 +145,12 @@ def detect(img):
                     if save_img or view_img:  # Add bbox to image
                             label = f'{names[int(cls)]} {conf:.2f}'
                             plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-
+                            st.image(im0)
             # if save_img:
             #     if dataset.mode == 'image':
             #         cv2.imwrite(save_path, im0)
-            im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
-            st.image(im0)
+            # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
+            # st.image(im0)
 
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
