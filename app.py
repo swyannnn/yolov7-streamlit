@@ -15,6 +15,11 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 if not os.path.exists('yolov7.pt'):
     os.system("wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt")
 
+def save_uploadedfile(uploadedfile):
+    with open(os.path.join("Inference/current.jpg"),"wb") as f:
+         f.write(uploadedfile.getbuffer())
+    return True
+    
 def main():
     #remove previous image
     for file in os.listdir('Inference'):
@@ -55,16 +60,10 @@ def detect(img):
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
-    # parser.add_argument('--project', default='runs/detect', help='save results to project/name')
-    # parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--trace', action='store_true', help='trace model')
     opt = parser.parse_args()
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
-
-    # Directories
-    # save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
-    # (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
     # Initialize
     set_logging()
@@ -136,13 +135,6 @@ def detect(img):
         # display image in st
         im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
         st.image(im0)
-
-                    
-def save_uploadedfile(uploadedfile):
-    #  with open(os.path.join("Inference",uploadedfile.name),"wb") as f:
-    with open(os.path.join("Inference/current.jpg"),"wb") as f:
-         f.write(uploadedfile.getbuffer())
-    return True
 
 
 if __name__ == "__main__":
