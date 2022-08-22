@@ -7,6 +7,11 @@ from bokeh.models.widgets import Button
 from bokeh.models import CustomJS
 from streamlit_bokeh_events import streamlit_bokeh_events
 
+# Importing required libraries
+from googleplaces import GooglePlaces, types, lang
+import requests
+import json
+
 loc_button = Button(label="Get Location")
 loc_button.js_on_event("button_click", CustomJS(code="""
     navigator.geolocation.getCurrentPosition(
@@ -29,8 +34,9 @@ if result:
         longitude = result.get("GET_LOCATION")['lon']
 
 # big map
-map = folium.Map(location=(latitude, longitude), zooom_start = 30)
+map = folium.Map(location=(3.0033348,101.7637886), zooom_start = 30)
 
-folium.Marker([latitude, longitude], popup="Your location").add_to(map)
+folium.Marker([3.0033348,101.7637886], popup="Your location").add_to(map)
 
 st_folium(map)
+

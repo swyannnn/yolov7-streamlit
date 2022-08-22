@@ -30,6 +30,7 @@ Jinja2
 branca
 bokeh==2.4.3
 streamlit-bokeh-events==0.1.2
+python-google-places==1.4.2
 
 # Export --------------------------------------
 # coremltools>=4.1  # CoreML export
