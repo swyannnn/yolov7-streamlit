@@ -11,6 +11,8 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
+from map import permissionbutton
+
 # download yolov7.pt if not already
 if not os.path.exists('yolov7.pt'):
     os.system("wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt")
@@ -23,6 +25,7 @@ def save_uploadedfile(uploadedfile):
 def main():
     #remove previous image
     for file in os.listdir('Inference'):
+        if file.endswith('.jpg'):
             os.remove('Inference/'+file) 
 
     # User interface
@@ -130,7 +133,7 @@ def detect(img):
                             'microwave', 'oven', 'toaster', 'refrigerator', 'hair drier']
                     if label in target:
                         plot_one_box(xyxy, im0, label=label, color=[0,255,0], line_thickness=3)
-
+                        permissionbutton()
 
         # display image in st
         im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
