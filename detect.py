@@ -6,7 +6,6 @@ from utils.general import check_img_size, non_max_suppression, apply_classifier,
     scale_coords, set_logging
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, TracedModel
-from map import permissionbutton,getuserlocation,drawmap,centredata
 from streamlit_folium import st_folium
 
 # Initialize
@@ -112,18 +111,12 @@ def detect(img):
                     target = ['tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
                             'microwave', 'oven', 'toaster', 'refrigerator', 'hair drier']
                     if label in target:
-                        plot_one_box(xyxy, im0, label=label, color=[0,255,0], line_thickness=3)
+                        plot_one_box(xyxy, im0, label=label, color=[0,255,0], line_thickness=2)
                         bbox_count += 1    
 
         # display image in st
         im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
         st.image(im0)
+
+    return bbox_count
         
-        if bbox_count > 0:
-            st.text(f'{bbox_count} device(s) founded, would you like to recycle?')
-            result = permissionbutton()
-            if result:
-                latitude,longitude = getuserlocation(result)
-                map = drawmap(latitude,longitude)
-                centredata(map)
-                st_folium(map)
