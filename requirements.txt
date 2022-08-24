@@ -48,3 +48,6 @@ thop  # FLOPs computation
 # albumentations>=1.0.3
 # pycocotools>=2.0  # COCO mAP
 # roboflow
+
+# user registration --------------------------------------
+streamlit-authenticator==0.2.1
