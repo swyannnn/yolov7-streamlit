@@ -1,5 +1,5 @@
 import os
-
+import streamlit_authenticator as stauth
 from deta import Deta  # pip install deta
 from dotenv import load_dotenv  # pip install python-dotenv
 
@@ -15,9 +15,11 @@ deta = Deta(DETA_KEY)
 # This is how to create/connect a database
 db = deta.Base("users_db")
 
-def insert_user(username, name, password):
+def insert_user(username, name, email, password):
     """Returns the user on a successful user creation, otherwise raises and error"""
-    return db.put({"key": username, "name": name, "password": password})
+    return db.put({"key": username, "name":name, "email": email, "password": stauth.Hasher(password).generate()})
+
+insert_user("rmiller", "ribica miller", "rmiller@gmail.com", '123456')
 
 def fetch_all_users():
     """Returns a dict of all users"""
@@ -33,7 +35,6 @@ def get_user(username):
 def update_user(username, updates):
     """If the item is updated, returns None. Otherwise, an exception is raised"""
     return db.update(updates, username)
-
 
 def delete_user(username):
     """Always returns None, even if the key does not exist"""
