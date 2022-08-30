@@ -19,8 +19,6 @@ def insert_user(username, name, email, password):
     """Returns the user on a successful user creation, otherwise raises and error"""
     return db.put({"key": username, "name":name, "email": email, "password": stauth.Hasher(password).generate()})
 
-insert_user("rmiller", "ribica miller", "rmiller@gmail.com", '123456')
-
 def fetch_all_users():
     """Returns a dict of all users"""
     res = db.fetch()
