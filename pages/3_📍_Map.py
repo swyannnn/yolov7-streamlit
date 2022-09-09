@@ -11,6 +11,7 @@ st.set_page_config(
     page_title="E-waste",
     page_icon="♻️",
 )
+
 # before getting location access permission from user, plot all centre locations on map
 def centredata():
     centres = pd.read_csv('centredata2.csv')
@@ -30,7 +31,7 @@ def centredata():
     
 # create a button to access user's location
 def permissionbutton():
-    loc_button = Button(label="Yes")
+    loc_button = Button(label="Click to allow location access")
     loc_button.js_on_event("button_click", CustomJS(code="""
         navigator.geolocation.getCurrentPosition(
             (loc) => {
@@ -96,7 +97,7 @@ def findnearestcentre(map,latitude,longitude):
             folium.Marker(
                 location= [row['Latitude'],row['Longitude']],
                 radius=5,
-                popup= row['CompanyName'],
+                popup= f"{row['CompanyName']}({row['distance']}km)",
                 color='red',
                 fill=True,
                 fill_color='red',
@@ -105,12 +106,12 @@ def findnearestcentre(map,latitude,longitude):
             x+=1
         
 
-
-centredata()
-st.write("May I access your current location?")
+# Final algorithm
 result = permissionbutton()
 if result:
     latitude,longitude = getuserlocation(result)
     map = plotuserlocation(latitude,longitude)
     findnearestcentre(map,latitude,longitude)
     st_folium(map)
+else:
+    centredata()
