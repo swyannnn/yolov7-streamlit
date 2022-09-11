@@ -10,9 +10,9 @@ st.set_page_config(
 )
 
 # Load the environment variables
-load_dotenv(".env")
-DETA_KEY = os.getenv("DETA_KEY")
-# DETA_KEY="c02438ym_H2yB9nr6ho7bCBabFs8D8ecLLqTnpy5C"
+# load_dotenv(".env")
+# DETA_KEY = os.getenv("DETA_KEY")
+DETA_KEY="c02438ym_H2yB9nr6ho7bCBabFs8D8ecLLqTnpy5C"
 # Initialize with a project key
 deta = Deta(DETA_KEY)
 # This is how to create/connect a database
@@ -21,7 +21,7 @@ db = deta.Base("users_db")
 class Deta():
     def insert_user(username, email):
         """Returns the user on a successful user creation, otherwise raises and error"""
-        return db.put({"key": username, "email": email})
+        return db.put({"key": username, "email": email, "point" : 0})
     def fetch_all_users():
         """Returns a dict of all users"""
         res = db.fetch()
@@ -107,6 +107,7 @@ if not st.session_state['authentication_status']:
             user_status.write(f"You are now logged in as {st.session_state['key']}")
 
 else:
+    user_status.write(f"You are now logged in as {st.session_state['key']}")
     logout = st.sidebar.button('Log Out', on_click = callback_to_login_button)
     if logout:
         Authenticator.logout()

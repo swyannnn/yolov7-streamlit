@@ -7,11 +7,151 @@ from utils.general import check_img_size, non_max_suppression, apply_classifier,
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, TracedModel
 from streamlit_folium import st_folium
+# map import
+import folium
+import pandas as pd
+from bokeh.models.widgets import Button
+from bokeh.models import CustomJS
+from streamlit_bokeh_events import streamlit_bokeh_events
+import haversine as hs
+
+import PIL.Image
+import PIL.ExifTags
 
 st.set_page_config(
     page_title="E-waste",
     page_icon="♻️",
 )
+
+# before getting location access permission from user, plot all centre locations on map
+def centredata():
+    centres = pd.read_csv('centredata2.csv')
+
+    map = folium.Map(location=[centres.Latitude.mean(), centres.Longitude.mean()], zoom_start=7, tiles='OpenStreetMap')
+
+    # loop all centres in csv file and plot locations on map
+    for _, centre in centres.iterrows():
+        folium.Marker(
+            location=[centre['Latitude'], centre['Longitude']],
+            popup=centre['CompanyName'],
+            tooltip=centre['CompanyName'],
+            icon=folium.Icon(color='darkgreen', icon_color='white',prefix='fa', icon='circle')
+        ).add_to(map)
+    
+    st_folium(map)
+# create a button to access user's location
+def permissionbutton():
+    loc_button = Button(label="Direct me to nearest centre")
+    loc_button.js_on_event("button_click", CustomJS(code="""
+        navigator.geolocation.getCurrentPosition(
+            (loc) => {
+                document.dispatchEvent(new CustomEvent("GET_LOCATION", {detail: {lat: loc.coords.latitude, lon: loc.coords.longitude}}))
+            }
+        )
+        """))
+
+    result = streamlit_bokeh_events(
+        loc_button,
+        events="GET_LOCATION",
+        key="get_location",
+        refresh_on_update=False,
+        override_height=75,
+        debounce_time=0)
+    return result
+# getting user's location when he/she allows 
+def getuserlocation(result):
+    latitude = result.get("GET_LOCATION")['lat']
+    longitude = result.get("GET_LOCATION")['lon']
+    return latitude,longitude
+# plot user's location on map
+def plotuserlocation(latitude,longitude):
+    map = folium.Map(width=10,height=10,location=(latitude,longitude),zoom_start = 15)
+
+    # user's location as centre on map
+    folium.Marker([latitude,longitude], popup = f"Your location:{latitude},{longitude}",
+    tooltip=f"Your location:{latitude},{longitude}").add_to(map)
+
+    # user's location above is wrong, for me it's this...
+    folium.Marker([2.9920513,101.7830867], popup="My home", tooltip="My home",color='red').add_to(map)
+    return map
+# find and plot nearest centre from user
+def nearestcentre(map,latitude,longitude):
+    # read csv file
+    centre_loc=pd.read_csv('centredata2.csv')
+
+    # zip data for each column
+    centre_loc['coor'] = list(zip(centre_loc.Latitude, centre_loc.Longitude))
+
+    # function to obtain distance between user's and centre's locations
+    def distance_from(loc1,loc2): 
+        distance=hs.haversine(loc1,loc2)
+        return round(distance,1)
+
+    # make a list to record the distances
+    distance = list()
+    for _,row in centre_loc.iterrows():
+        distance.append(distance_from(row.coor,(latitude,longitude)))
+
+    # assigning data in list to each columns
+    centre_loc['distance']=distance
+
+    centre_loc = centre_loc.sort_values(by=['distance'])
+
+    # plotting the 5 nearest centre from user's location on map
+    x = 1
+    for index, row in centre_loc.iterrows(): 
+        if x <= 5:
+            folium.Marker(
+                location= [row['Latitude'],row['Longitude']],
+                radius=5,
+                popup= f"{row['CompanyName']}({row['distance']}km)",
+                tooltip=f"{row['CompanyName']}({row['distance']}km)",
+                color='red',
+                fill=True,
+                fill_color='red',
+                icon=folium.Icon(color='darkgreen', icon_color='white',prefix='fa', icon='circle')
+                ).add_to(map)
+            x+=1
+    return centre_loc
+# listing the 5 nearest centre from user's location on map
+def listnearestcentre(centre_loc):
+    x = 1
+    for index, row in centre_loc.iterrows(): 
+        if x <= 5:
+            st.write(f"""
+            {x}) {row["CompanyName"]} -- {row['distance']} km\n
+            📍 {row["Address"]}\n
+            :telephone_receiver: {row['TelNum']}\n
+            """)
+            x+=1
+    link = 'Click [HERE](https://ewaste.doe.gov.my/index.php/about/list-of-collectors/) to know all the government proved recycling centre in Malaysia'
+    st.markdown(link,unsafe_allow_html=True)
+# final algorithm using the functions above for map
+def func_for_map_feature():
+    result = permissionbutton()
+    if result:
+        latitude,longitude = getuserlocation(result)
+        map = plotuserlocation(latitude,longitude)
+        st.subheader('Top 5 nearest recycle centre from your current location')
+        centre_loc = nearestcentre(map,latitude,longitude)
+        st_folium(map)
+        listnearestcentre(centre_loc)
+    else:
+        centredata()
+    # if bbox_count>0:
+    #     st.write(f'Object detected: {detected_info[:-2]}')
+    #     result = permissionbutton()
+    #     if result:
+    #         latitude,longitude = getuserlocation(result)
+    #         map = plotuserlocation(latitude,longitude)
+    #         st.subheader('Top 5 nearest recycle centre from your current location')
+    #         centre_loc = nearestcentre(map,latitude,longitude)
+    #         st_folium(map)
+    #         listnearestcentre(centre_loc)
+
+
+
+
 
 # Initialize
 @st.cache(show_spinner=False)
@@ -101,6 +241,10 @@ def detect(img):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
+        target = ['tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+                            'microwave', 'oven', 'toaster', 'refrigerator', 'hair drier']
+        bbox_count = 0
+        obj_detected = set()
         for i, det in enumerate(pred):
             p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
 
@@ -109,21 +253,21 @@ def detect(img):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
-                # Add bbox to image
-                bbox_count = 0
                 for *xyxy, conf, cls in reversed(det):
                     label = names[int(cls)]
-                    target = ['tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
-                            'microwave', 'oven', 'toaster', 'refrigerator', 'hair drier']
                     if label in target:
+                        obj_detected.add(label)
                         plot_one_box(xyxy, im0, label=label, color=[0,255,0], line_thickness=2)
-                        bbox_count += 1    
-
+                        bbox_count += 1   
+                
+        detected_info = str()
+        for obj in obj_detected: 
+            detected_info += f"{obj}, "
         # display image in st
         im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
-        st.image(im0)
+        st.image(im0, width=300)
 
-    return bbox_count
+    return bbox_count, detected_info
         
 weight_url = "https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt"
 @st.cache(show_spinner=False)
@@ -144,25 +288,22 @@ def main():
             os.remove('Inference/'+file) 
 
     # User interface
-    st.title("Scanning electronic items")
-
+    st.title("Ready tO Recycle")
     image, camera = st.tabs(["Image", "Camera"])
     
     # if user choose 'Image'
     with image:
-        image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
-        if image_file is not None:
-            save_uploadedfile(image_file)
-            # process and display result image, return bbox_count
-            bbox_count = detect(image_file)
-            # map features
-            # map(bbox_count)
-            if bbox_count>0:
-                st.write('congratz')
-                map = st.button('direct me to nearest centre')
-                if map:
-                    link = 'http://localhost:8501/Map'
-                    st.markdown(link, unsafe_allow_html=True)
+        upload_col, map_col = st.columns(2)
+        with upload_col:
+            image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
+            if image_file is not None:
+                save_uploadedfile(image_file)
+                # process and display result image, return bbox_count
+                bbox_count, detected_info = detect(image_file)
+                st.write(f"Detected object: {detected_info[:-2]}")
+
+        with map_col:
+            func_for_map_feature()
     
     # if user choose 'Camera'
     with camera:
@@ -170,17 +311,30 @@ def main():
         if img_file_buffer:
             save_uploadedfile(img_file_buffer)
             # process and display result image, return bbox_count
-            bbox_count = detect(img_file_buffer)
-            # map features
-            if bbox_count>0:
-                st.write('congratz')
-                map = st.button('direct me to nearest centre')
-                if map:
-                    link = 'http://localhost:8501/Map'
-                    st.markdown(link, unsafe_allow_html=True)
-            # map(bbox_count)
+            bbox_count, detected_info = detect(img_file_buffer)
 
+            # map features
+            func_for_map_feature()
 
 
 if __name__ == "__main__":
     main()
+
+
+# #test image location
+# img = PIL.Image.open("Inference/current.jpg")
+# exif = {
+#     PIL.ExifTags.TAGS[key]: value
+#     for key, value in img._getexif().items()
+#     if key in PIL.ExifTags.TAGS
+# }
+# north = exif["GPSInfo"][2]
+# east = exif["GPSInfo"][4]
+# latitude = float((north[0]) + (north[1]/60) + (north[2]/3600))
+# longitude = float((east[0]) + (east[1]/60) + (east[2]/3600))
+# map = plotuserlocation(latitude,longitude)
+# centre_loc = findnearestcentre(map,latitude,longitude)
+# st.subheader('Top 5 nearest recycle centre from your current location')
+# plotnearestcentre(centre_loc)
+# st_folium(map)
+# listnearestcentre(centre_loc)

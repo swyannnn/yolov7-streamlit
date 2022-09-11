@@ -58,17 +58,42 @@ def getuserlocation(result):
 
 # plot user's location on map
 def plotuserlocation(latitude,longitude):
-    map = folium.Map(location=(latitude,longitude),zoom_start = 15)
+    map = folium.Map(location=(latitude,longitude),zoom_start = 12)
 
     # user's location as centre on map
-    folium.Marker([latitude,longitude], popup = f"Your location:{latitude},{longitude}").add_to(map)
+    folium.Marker([latitude,longitude], popup = f"Your location:{latitude},{longitude}",
+    tooltip=f"Your location:{latitude},{longitude}").add_to(map)
 
     # user's location above is wrong, for me it's this...
-    folium.Marker([2.9920513,101.7830867], popup="My home",color='red').add_to(map)
+    folium.Marker([2.9920513,101.7830867], popup="My home", tooltip="My home",color='red').add_to(map)
     return map
 
 # find and plot nearest centre from user
 def findnearestcentre(map,latitude,longitude):
+    # read csv file
+    centre_loc=pd.read_csv('centredata2.csv')
+
+    # zip data for each column
+    centre_loc['coor'] = list(zip(centre_loc.Latitude, centre_loc.Longitude))
+
+    # function to obtain distance between user's and centre's locations
+    def distance_from(loc1,loc2): 
+        distance=hs.haversine(loc1,loc2)
+        return round(distance,1)
+
+    # make a list to record the distances
+    distance = list()
+    for _,row in centre_loc.iterrows():
+        distance.append(distance_from(row.coor,(latitude,longitude)))
+
+    # assigning data in list to each columns
+    centre_loc['distance']=distance
+
+    centre_loc = centre_loc.sort_values(by=['distance'])
+    return centre_loc
+
+# plotting the 5 nearest centre from user's location on map
+def nearestcentre(centre_loc):
     # read csv file
     centre_loc=pd.read_csv('centredata2.csv')
 
@@ -98,20 +123,42 @@ def findnearestcentre(map,latitude,longitude):
                 location= [row['Latitude'],row['Longitude']],
                 radius=5,
                 popup= f"{row['CompanyName']}({row['distance']}km)",
+                tooltip=f"{row['CompanyName']}({row['distance']}km)",
                 color='red',
                 fill=True,
                 fill_color='red',
                 icon=folium.Icon(color='darkgreen', icon_color='white',prefix='fa', icon='circle')
-                 ).add_to(map)
+                ).add_to(map)
             x+=1
-        
+    return centre_loc
+
+
+
+
+# listing the 5 nearest centre from user's location on map
+def listnearestcentre(centre_loc):
+    x = 1
+    for index, row in centre_loc.iterrows(): 
+        if x <= 5:
+            st.write(f"""
+            {x}) {row["CompanyName"]} -- {row['distance']} km\n
+            📍 {row["Address"]}\n
+            :telephone_receiver: {row['TelNum']}\n
+            """)
+            x+=1
+    link = 'Click [HERE](https://ewaste.doe.gov.my/index.php/about/list-of-collectors/) to know all the government proved recycling centre in Malaysia'
+    st.markdown(link,unsafe_allow_html=True)
 
 # Final algorithm
 result = permissionbutton()
 if result:
     latitude,longitude = getuserlocation(result)
     map = plotuserlocation(latitude,longitude)
-    findnearestcentre(map,latitude,longitude)
+    centre_loc = findnearestcentre(map,latitude,longitude)
+    st.subheader('Top 5 nearest recycle centre from your current location')
+    plotnearestcentre(centre_loc)
     st_folium(map)
+    listnearestcentre(centre_loc)
 else:
+    st.subheader('All government proved recycling centre in Malaysia')
     centredata()
