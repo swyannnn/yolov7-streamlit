@@ -138,19 +138,6 @@ def func_for_map_feature():
         listnearestcentre(centre_loc)
     else:
         centredata()
-    # if bbox_count>0:
-    #     st.write(f'Object detected: {detected_info[:-2]}')
-    #     result = permissionbutton()
-    #     if result:
-    #         latitude,longitude = getuserlocation(result)
-    #         map = plotuserlocation(latitude,longitude)
-    #         st.subheader('Top 5 nearest recycle centre from your current location')
-    #         centre_loc = nearestcentre(map,latitude,longitude)
-    #         st_folium(map)
-    #         listnearestcentre(centre_loc)
-
-
-
 
 
 # Initialize
@@ -174,18 +161,14 @@ def getnames(model):
     names = model.module.names if hasattr(model, 'module') else model.names
     return names
 
-def detect(img):
+def detect(img, weight_file):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default="yolov7.pt", help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default=f"{weight_file}.pt", help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='Inference/', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.6, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
-    parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
@@ -193,7 +176,7 @@ def detect(img):
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--trace', action='store_true', help='trace model')
     opt = parser.parse_args()
-    source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.trace
+    source, weights, imgsz, trace = opt.source, opt.weights, opt.img_size, opt.trace
 
     # Initialize
     device,half = initialize(opt.device)
@@ -224,6 +207,8 @@ def detect(img):
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
     
+
+    found = None
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.float()  # uint8 to fp16/32
@@ -241,33 +226,51 @@ def detect(img):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
-        target = ['tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+        if weights == "yolov7.pt":
+            target = ['tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
                             'microwave', 'oven', 'toaster', 'refrigerator', 'hair drier']
-        bbox_count = 0
-        obj_detected = set()
-        for i, det in enumerate(pred):
-            p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
+            for i, det in enumerate(pred):
+                p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
+                gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+                if len(det):
+                    # Rescale boxes from img_size to im0 size
+                    det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                    max_conf = 0
+                    for *xyxy, conf, cls in reversed(det):
+                        label = names[int(cls)]
+                        if label in target and conf > max_conf:
+                            max_conf = conf
+                            max_label = {label:xyxy}
+                    if len(max_label) > 0:
+                        st.text(max_conf)
+                        for key, value in max_label.items():
+                            found = key
+                            plot_one_box(value, im0, label=f"{key}", color=[0,255,0], line_thickness=2)
+                            st.text(key)
+                             
+            
 
-            gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
-            if len(det):
-                # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+        else:
+            for i, det in enumerate(pred):
+                p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
 
-                for *xyxy, conf, cls in reversed(det):
-                    label = names[int(cls)]
-                    if label in target:
-                        obj_detected.add(label)
-                        plot_one_box(xyxy, im0, label=label, color=[0,255,0], line_thickness=2)
-                        bbox_count += 1   
-                
-        detected_info = str()
-        for obj in obj_detected: 
-            detected_info += f"{obj}, "
+                gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+                if len(det):
+                    # Rescale boxes from img_size to im0 size
+                    det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+
+                    for *xyxy, conf, cls in reversed(det):
+                        found = weight_file
+                        plot_one_box(xyxy, im0, label=weight_file, color=[0,255,0], line_thickness=2)
+
         # display image in st
-        im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
-        st.image(im0, width=300)
+        if found is not None:
+            im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
+            st.image(im0)
+        return found
+           
 
-    return bbox_count, detected_info
+    
         
 weight_url = "https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt"
 @st.cache(show_spinner=False)
@@ -280,7 +283,24 @@ def save_uploadedfile(uploadedfile):
     with open(os.path.join("Inference/current.jpg"),"wb") as f:
          f.write(uploadedfile.getbuffer())
     return True
-    
+
+def detectionprocess(image_file):
+    save_uploadedfile(image_file)
+    # process and display result image, return bbox_count
+    found = detect(image_file, "yolov7")
+    pt_list = ['washingmachine','camera','printer']
+    pt_index = 0
+    while found is None and pt_index < len(pt_list):
+        found = detect(image_file, pt_list[pt_index])
+        pt_index += 1
+    if found is None and pt_index == len(pt_list):
+        st.text('nothing detected')
+    #     st.image(im0, width=300)
+    #     # st.write(f"Detected object: {detected_info[:-2]}")
+    # else:
+        # im0 = detect(image_file, "washingmachine")
+        # st.image(im0, width=300)
+
 def main():
     #remove previous saved image in Inference folder if any
     for file in os.listdir('Inference'):
@@ -288,30 +308,24 @@ def main():
             os.remove('Inference/'+file) 
 
     # User interface
-    st.title("Ready tO Recycle")
+    st.title("Ready to Recycle")
     image, camera = st.tabs(["Image", "Camera"])
-    
+
     # if user choose 'Image'
     with image:
         upload_col, map_col = st.columns(2)
         with upload_col:
             image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
             if image_file is not None:
-                save_uploadedfile(image_file)
-                # process and display result image, return bbox_count
-                bbox_count, detected_info = detect(image_file)
-                st.write(f"Detected object: {detected_info[:-2]}")
-
+                detectionprocess(image_file)
         with map_col:
             func_for_map_feature()
     
     # if user choose 'Camera'
     with camera:
-        img_file_buffer = st.camera_input("Take a picture")
-        if img_file_buffer:
-            save_uploadedfile(img_file_buffer)
-            # process and display result image, return bbox_count
-            bbox_count, detected_info = detect(img_file_buffer)
+        image_file = st.camera_input("Take a picture")
+        if image_file:
+            detectionprocess(image_file)
 
             # map features
             func_for_map_feature()

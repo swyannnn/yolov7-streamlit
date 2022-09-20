@@ -1,4 +1,3 @@
-from turtle import onclick
 from dotenv import load_dotenv
 import os
 import streamlit as st
@@ -82,33 +81,54 @@ class Authenticator():
         st.session_state['username'] = None
         st.session_state['authentication_status'] = None
 
-st.session_state['key'],st.session_state['logout'],st.session_state['authentication_status'] = Authenticator.initialize()
+def user_status():
+    st.session_state['key'],st.session_state['logout'],st.session_state['authentication_status'] = Authenticator.initialize()
+
+    def callback_to_login_button():
+        st.session_state['authentication_status']=False
+    def callback_to_logout_button():
+        st.session_state['authentication_status']=True
+    user_status = st.empty()
+
+    if not st.session_state['authentication_status']:
+        user_status.write("You are not logged in")
+        pages_name = ['Yes','No']
+        page = st.sidebar.radio('Already have an account?',pages_name, horizontal=True)
+        if page == 'Yes':
+            st.session_state['key'], st.session_state['authentication_status'] = Authenticator.login()
+            if st.session_state['authentication_status']:
+                user_status.write(f"You are now logged in as {st.session_state['key']}")
+        if page == 'No':
+            st.session_state['key'], st.session_state['authentication_status'] = Authenticator.register()
+            if st.session_state['authentication_status']:
+                user_status.write(f"You are now logged in as {st.session_state['key']}")
+
+    else:
+        user_status.write(f"You are now logged in as {st.session_state['key']}")
+        logout = st.sidebar.button('Log Out', on_click = callback_to_login_button)
+        if logout:
+            Authenticator.logout()
+user_status()
 
 
-def callback_to_login_button():
-    st.session_state['authentication_status']=False
+ewaste = st.container()
+ewaste.subheader("What is E-waste?")
+ewaste.write("“E-waste” is a broken, non-working or old/obsolete electric electronic appliance such as TV, PC, air conditioner, washing machine and refrigerator.")
+ewaste.write("It's been estimated that Malaysia produces more than 365,000 tonnes of e-waste every single year — That's heavier than the weight of the Petronas Twin Towers!")
+ewaste.write("Based on research, estimation shows Malaysia generates 24.5 million units of E-waste in 2025.")
+ewaste.write("Component in E-waste contain toxic and hazardous material such as mercury, lead, cadmium, arsenic, bromine, beryllium will permeate into the earth and subsequently water sources as well as threaten the aquatic and human life if E-waste is not disposed in environmentally sound manner.")
+ewaste.write("Component in E-waste also contain precious metals such as gold, copper, palladium and silver which has high recycling value.")
 
-def callback_to_logout_button():
-    st.session_state['authentication_status']=True
+footprint = st.container()
+footprint.subheader("Carbon Footprint")
+footprint.write("A carbon footprint is the total amount of greenhouse gases that are caused by the choices and actions of an individual, company or a nation. Carbon footprint is measured in terms of carbon dioxide emissions (CO2).")
+footprint.write("Carbon Footprint per person in Malaysia are equivalent to 8.68 tons per person.Globally, the average carbon footprint is closer to 4 tons. To have the best chance of avoiding a 2°C rise in global temperatures, the average global carbon footprint per year needs to drop to under 2 tons by 2050.")
 
-user_status = st.empty()
+why_recycle = st.container()
+why_recycle.subheader("Why we should do recycling?")
+why_recycle.write("Recycling helps reduce greenhouse gas emissions by reducing energy consumption. Using recycled materials to make new products reduces the need for virgin materials. This avoids greenhouse gas emissions that would result from extracting or mining virgin materials. In addition, manufacturing products from recycled materials typically requires less energy than making products from virgin materials.")
 
-if not st.session_state['authentication_status']:
-    user_status.write("You are not logged in")
-    pages_name = ['Yes','No']
-    page = st.sidebar.radio('Already have an account?',pages_name, horizontal=True)
-    if page == 'Yes':
-        st.session_state['key'], st.session_state['authentication_status'] = Authenticator.login()
-        if st.session_state['authentication_status']:
-            user_status.write(f"You are now logged in as {st.session_state['key']}")
-    if page == 'No':
-        st.session_state['key'], st.session_state['authentication_status'] = Authenticator.register()
-        if st.session_state['authentication_status']:
-            user_status.write(f"You are now logged in as {st.session_state['key']}")
-
-else:
-    user_status.write(f"You are now logged in as {st.session_state['key']}")
-    logout = st.sidebar.button('Log Out', on_click = callback_to_login_button)
-    if logout:
-        Authenticator.logout()
-
+ewaste_manner = st.container()
+ewaste_manner.subheader("Why we should properly managed e-waste in environmentally sound manner?")
+ewaste_manner.write("E-waste is becoming a global issue. The more electrical and electronic equipment are being produced, the more E-waste need to be disposed or managed properly.")
+ewaste_manner.write("If e-waste is discarded without implementing environmentally sound manner such as into the river, landfill, burning or sent to informal sector, e-waste may endanger our life, affecting human health and causing deterioration of environmental quality.")

@@ -156,7 +156,7 @@ if result:
     map = plotuserlocation(latitude,longitude)
     centre_loc = findnearestcentre(map,latitude,longitude)
     st.subheader('Top 5 nearest recycle centre from your current location')
-    plotnearestcentre(centre_loc)
+    nearestcentre(centre_loc)
     st_folium(map)
     listnearestcentre(centre_loc)
 else:
