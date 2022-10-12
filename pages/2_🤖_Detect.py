@@ -268,9 +268,6 @@ def detect(img, weight_file):
             im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
             st.image(im0)
         return found
-           
-
-    
         
 weight_url = "https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt"
 @st.cache(show_spinner=False)
@@ -295,11 +292,6 @@ def detectionprocess(image_file):
         pt_index += 1
     if found is None and pt_index == len(pt_list):
         st.text('nothing detected')
-    #     st.image(im0, width=300)
-    #     # st.write(f"Detected object: {detected_info[:-2]}")
-    # else:
-        # im0 = detect(image_file, "washingmachine")
-        # st.image(im0, width=300)
 
 def main():
     #remove previous saved image in Inference folder if any

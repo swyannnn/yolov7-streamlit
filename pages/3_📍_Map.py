@@ -132,9 +132,6 @@ def nearestcentre(centre_loc):
             x+=1
     return centre_loc
 
-
-
-
 # listing the 5 nearest centre from user's location on map
 def listnearestcentre(centre_loc):
     x = 1

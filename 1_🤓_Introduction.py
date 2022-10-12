@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 import os
 import streamlit as st
 from deta import Deta
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="E-waste",
@@ -114,10 +115,12 @@ user_status()
 ewaste = st.container()
 ewaste.subheader("What is E-waste?")
 ewaste.write("“E-waste” is a broken, non-working or old/obsolete electric electronic appliance such as TV, PC, air conditioner, washing machine and refrigerator.")
-ewaste.write("It's been estimated that Malaysia produces more than 365,000 tonnes of e-waste every single year — That's heavier than the weight of the Petronas Twin Towers!")
-ewaste.write("Based on research, estimation shows Malaysia generates 24.5 million units of E-waste in 2025.")
-ewaste.write("Component in E-waste contain toxic and hazardous material such as mercury, lead, cadmium, arsenic, bromine, beryllium will permeate into the earth and subsequently water sources as well as threaten the aquatic and human life if E-waste is not disposed in environmentally sound manner.")
-ewaste.write("Component in E-waste also contain precious metals such as gold, copper, palladium and silver which has high recycling value.")
+ewaste.write("It's been estimated that Malaysia produces more than 365,000 tonnes of e-waste every single year — That's heavier than the weight of the Petronas Twin Towers! Based on research, estimation shows Malaysia generates 24.5 million units of E-waste in 2025. (That's a lot!🤯)")
+
+ewaste.subheader("What does an E-waste normally contain?")
+ewaste.write("Component in E-waste contain *toxic* and *hazardous* material such as:")
+ewaste.write("mercury, lead, cadmium, arsenic, bromine, beryllium will permeate into the earth and subsequently water sources as well as threaten the aquatic and human life if E-waste is not disposed in environmentally sound manner.")
+ewaste.write("Component in E-waste also contain *precious metals* such as gold, copper, palladium and silver which has high recycling value.")
 
 footprint = st.container()
 footprint.subheader("Carbon Footprint")
@@ -132,3 +135,7 @@ ewaste_manner = st.container()
 ewaste_manner.subheader("Why we should properly managed e-waste in environmentally sound manner?")
 ewaste_manner.write("E-waste is becoming a global issue. The more electrical and electronic equipment are being produced, the more E-waste need to be disposed or managed properly.")
 ewaste_manner.write("If e-waste is discarded without implementing environmentally sound manner such as into the river, landfill, burning or sent to informal sector, e-waste may endanger our life, affecting human health and causing deterioration of environmental quality.")
+
+components.html("""
+    <object data=”https://allgreenrecycling.com/CarbonFootprintCalc.swf” type=”application/x-shockwave-flash” width=”398″ height=”407″><param name=”movie” value=”https://allgreenrecycling.com/CarbonFootprintCalc.swf” /></object>
+     """)
