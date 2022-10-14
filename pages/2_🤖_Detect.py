@@ -1,5 +1,8 @@
 import streamlit as st
-import os, argparse, cv2, torch
+import os
+import argparse
+import cv2
+import torch
 from models.experimental import attempt_load
 from utils.datasets import LoadImages
 from utils.general import check_img_size, non_max_suppression, apply_classifier, \
