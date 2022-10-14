@@ -165,6 +165,7 @@ celerybeat-schedule
 .venv*
 venv*/
 ENV*/
+.streamlit/secrets.toml
 
 # Spyder project settings
 .spyderproject

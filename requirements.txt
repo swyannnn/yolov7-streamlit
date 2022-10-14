@@ -45,6 +45,7 @@ python-google-places==1.4.2
 ipython  # interactive notebook
 psutil  # system utilization
 thop  # FLOPs computation
+deta
 # albumentations>=1.0.3
 # pycocotools>=2.0  # COCO mAP
 # roboflow

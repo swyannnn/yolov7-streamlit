@@ -10,11 +10,7 @@ st.set_page_config(
 )
 
 # Load the environment variables
-# load_dotenv(".env")
-# DETA_KEY = os.getenv("DETA_KEY")
-DETA_KEY="c02438ym_H2yB9nr6ho7bCBabFs8D8ecLLqTnpy5C"
-# Initialize with a project key
-deta = Deta(DETA_KEY)
+deta = Deta(st.secrets["deta_key"])
 # This is how to create/connect a database
 db = deta.Base("users_db")
 
