@@ -17,7 +17,7 @@ from bokeh.models.widgets import Button
 from bokeh.models import CustomJS
 from streamlit_bokeh_events import streamlit_bokeh_events
 import haversine as hs
-
+from streamlit_lottie import st_lottie
 import PIL.Image
 import PIL.ExifTags
 
@@ -72,10 +72,8 @@ def plotuserlocation(latitude,longitude):
 
     # user's location as centre on map
     folium.Marker([latitude,longitude], popup = f"Your location:{latitude},{longitude}",
-    tooltip=f"Your location:{latitude},{longitude}").add_to(map)
+    tooltip=f"Your location:{latitude},{longitude}", icon=folium.Icon(color="red",icon="fa-home", prefix='fa')).add_to(map)
 
-    # user's location above is wrong, for me it's this...
-    folium.Marker([2.9920513,101.7830867], popup="My home", tooltip="My home",color='red').add_to(map)
     return map
 # find and plot nearest centre from user
 def nearestcentre(map,latitude,longitude):
@@ -112,7 +110,7 @@ def nearestcentre(map,latitude,longitude):
                 color='red',
                 fill=True,
                 fill_color='red',
-                icon=folium.Icon(color='darkgreen', icon_color='white',prefix='fa', icon='circle')
+                icon=folium.Icon(color="green",icon="fa-recycle", prefix='fa')
                 ).add_to(map)
             x+=1
     return centre_loc
@@ -141,7 +139,6 @@ def func_for_map_feature():
         listnearestcentre(centre_loc)
     else:
         centredata()
-
 
 # Initialize
 @st.cache(show_spinner=False)
@@ -239,6 +236,7 @@ def detect(img, weight_file):
                     # Rescale boxes from img_size to im0 size
                     det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
                     max_conf = 0
+                    max_label = {}
                     for *xyxy, conf, cls in reversed(det):
                         label = names[int(cls)]
                         if label in target and conf > max_conf:
@@ -296,6 +294,10 @@ def detectionprocess(image_file):
     if found is None and pt_index == len(pt_list):
         st.text('nothing detected')
 
+def load_lottiefile(filepath: str):
+    with open(filepath, "r") as f:
+        return json.load(f)
+
 def main():
     #remove previous saved image in Inference folder if any
     for file in os.listdir('Inference'):
@@ -304,26 +306,36 @@ def main():
 
     # User interface
     st.title("Ready to Recycle")
-    image, camera = st.tabs(["Image", "Camera"])
 
-    # if user choose 'Image'
-    with image:
-        upload_col, map_col = st.columns(2)
-        with upload_col:
-            image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
-            if image_file is not None:
-                detectionprocess(image_file)
-        with map_col:
-            func_for_map_feature()
-    
-    # if user choose 'Camera'
-    with camera:
-        image_file = st.camera_input("Take a picture")
-        if image_file:
+    upload_col, map_col = st.columns(2)
+    with upload_col:
+        ottie_upload = load_lottiefile("./lottiefiles/565-camera.json")
+        st_lottie(ottie_upload, height=10, key="upload_icon")
+        camera_image_file = st.camera_input("Take a picture")
+        image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
+        if image_file is not None:
             detectionprocess(image_file)
-
-            # map features
-            func_for_map_feature()
+        if camera_image_file:
+            detectionprocess(camera_image_file)
+    with map_col:
+        func_for_map_feature()
+        # if image_file is not None or camera_image_file:
+        #     img = PIL.Image.open("Inference/current.jpg")
+        #     exif = {
+        #         PIL.ExifTags.TAGS[key]: value
+        #         for key, value in img._getexif().items()
+        #         if key in PIL.ExifTags.TAGS
+        #     }
+        #     north = exif["GPSInfo"][2]
+        #     east = exif["GPSInfo"][4]
+        #     latitude = float((north[0]) + (north[1]/60) + (north[2]/3600))
+        #     longitude = float((east[0]) + (east[1]/60) + (east[2]/3600))
+        #     map = plotuserlocation(latitude,longitude)
+        #     centre_loc = nearestcentre(map,latitude,longitude)
+        #     st.subheader('Top 5 nearest recycle centre from your current location')
+        #     nearestcentre(centre_loc)
+        #     st_folium(map)
+        #     listnearestcentre(centre_loc)
 
 
 if __name__ == "__main__":
@@ -342,8 +354,8 @@ if __name__ == "__main__":
 # latitude = float((north[0]) + (north[1]/60) + (north[2]/3600))
 # longitude = float((east[0]) + (east[1]/60) + (east[2]/3600))
 # map = plotuserlocation(latitude,longitude)
-# centre_loc = findnearestcentre(map,latitude,longitude)
+# centre_loc = nearestcentre(map,latitude,longitude)
 # st.subheader('Top 5 nearest recycle centre from your current location')
-# plotnearestcentre(centre_loc)
+# nearestcentre(centre_loc)
 # st_folium(map)
 # listnearestcentre(centre_loc)
