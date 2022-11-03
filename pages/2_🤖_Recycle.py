@@ -16,10 +16,15 @@ import pandas as pd
 from bokeh.models.widgets import Button
 from bokeh.models import CustomJS
 from streamlit_bokeh_events import streamlit_bokeh_events
+from streamlit_lottie import st_lottie_spinner
 import haversine as hs
 from streamlit_lottie import st_lottie
 import PIL.Image
 import PIL.ExifTags
+import json
+from PIL import Image
+import requests
+from django.utils.html import format_html
 
 st.set_page_config(
     page_title="E-waste",
@@ -38,7 +43,7 @@ def centredata():
             location=[centre['Latitude'], centre['Longitude']],
             popup=centre['CompanyName'],
             tooltip=centre['CompanyName'],
-            icon=folium.Icon(color='darkgreen', icon_color='white',prefix='fa', icon='circle')
+            icon=folium.Icon(color="green",icon="fa-recycle", prefix='fa')
         ).add_to(map)
     
     st_folium(map)
@@ -58,7 +63,7 @@ def permissionbutton():
         events="GET_LOCATION",
         key="get_location",
         refresh_on_update=False,
-        override_height=75,
+        override_height=50,
         debounce_time=0)
     return result
 # getting user's location when he/she allows 
@@ -68,7 +73,7 @@ def getuserlocation(result):
     return latitude,longitude
 # plot user's location on map
 def plotuserlocation(latitude,longitude):
-    map = folium.Map(width=10,height=10,location=(latitude,longitude),zoom_start = 15)
+    map = folium.Map(width=10,height=10,location=(latitude,longitude),zoom_start = 12)
 
     # user's location as centre on map
     folium.Marker([latitude,longitude], popup = f"Your location:{latitude},{longitude}",
@@ -125,8 +130,7 @@ def listnearestcentre(centre_loc):
             :telephone_receiver: {row['TelNum']}\n
             """)
             x+=1
-    link = 'Click [HERE](https://ewaste.doe.gov.my/index.php/about/list-of-collectors/) to know all the government proved recycling centre in Malaysia'
-    st.markdown(link,unsafe_allow_html=True)
+
 # final algorithm using the functions above for map
 def func_for_map_feature():
     result = permissionbutton()
@@ -138,7 +142,11 @@ def func_for_map_feature():
         st_folium(map)
         listnearestcentre(centre_loc)
     else:
+        st.subheader("Government proved recycling centre in Malaysia")
         centredata()
+    link = 'Click [HERE](https://ewaste.doe.gov.my/index.php/about/list-of-collectors/) to know all the government proved recycling centre in Malaysia'
+    st.markdown(link,unsafe_allow_html=True)
+    return True
 
 # Initialize
 @st.cache(show_spinner=False)
@@ -268,8 +276,43 @@ def detect(img, weight_file):
         if found is not None:
             im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
             st.image(im0)
+            # save detected result image into "Inference" folder
+            im = Image.fromarray(im0)
+            im.save("Inference/result.jpg")
+            download_result_image()
         return found
+
+def submit_item_form(found):
+    st.header(":mailbox: Get In Touch With Me!")
+    html=format_html("""
+    <form>
+        <input type="radio" id="yes" name="yesorno" value="Yes">
+        <label for="yes">Yes, it is {found}!💯'</label><br>
+        <input type="radio" id="no" name="yesorno" value="No">
+        <label for="no">No☹️</label><br>
         
+    </form>
+    """,found=found)
+    submit_item_form = html
+    st.markdown(submit_item_form, unsafe_allow_html=True)
+    # Use Local CSS File
+    def local_css(file_name):
+        with open(file_name) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+    local_css("style/style.css")
+    # with st.form('Submit Item'):
+    #     st.subheader("I want to recycle this E-waste!")
+    #     accuracy = st.radio(
+    #         "Did I detect your electronic item correctly?",
+    #         (f'Yes💯, it is {found}!', 'No☹️'))
+    #     if accuracy == 'No☹️':
+    #         actual_item = st.text_input('What is it actually?').lower()
+    #     submitted = st.form_submit_button('Submit')
+    #     if submitted:
+    #         st.write("We receive your submission.")
+
+
 weight_url = "https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt"
 @st.cache(show_spinner=False)
 def wget_yolov7(weight_url):
@@ -282,6 +325,17 @@ def save_uploadedfile(uploadedfile):
          f.write(uploadedfile.getbuffer())
     return True
 
+def download_result_image():
+    with open("Inference/result.jpg", "rb") as file:
+        btn = st.download_button(
+                label="Download image",
+                data=file,
+                file_name="result.jpg",
+                mime="image/png")
+        return btn
+
+# detect whether there is electronic items in the image using "detect" function
+# if nothing found, st.text('nothing detected')
 def detectionprocess(image_file):
     save_uploadedfile(image_file)
     # process and display result image, return bbox_count
@@ -293,10 +347,41 @@ def detectionprocess(image_file):
         pt_index += 1
     if found is None and pt_index == len(pt_list):
         st.text('nothing detected')
+    return found
 
+def feedback_form():
+    st.header(":mailbox: Get In Touch With Me!")
+
+    contact_form = """
+    <form action="https://formsubmit.co/seow.w22@kinghenryviii.edu.my" method="POST">
+        <input type="hidden" name="_captcha" value="false">
+        <input type="text" name="name" placeholder="Your name" required>
+        <input type="email" name="email" placeholder="Your email" required>
+        <textarea name="message" placeholder="Your message here"></textarea>
+        <button type="submit">Send</button>
+    </form>
+    """
+
+    st.markdown(contact_form, unsafe_allow_html=True)
+
+    # Use Local CSS File
+    def local_css(file_name):
+        with open(file_name) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+
+    local_css("style/style.css")
+
+@st.experimental_memo
 def load_lottiefile(filepath: str):
     with open(filepath, "r") as f:
         return json.load(f)
+@st.experimental_memo
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
 
 def main():
     #remove previous saved image in Inference folder if any
@@ -305,20 +390,30 @@ def main():
             os.remove('Inference/'+file) 
 
     # User interface
-    st.title("Ready to Recycle")
-
+    lottie_col, title_col= st.columns((2,8))
+    with lottie_col:
+        lottie_recycle_icon2 = load_lottiefile("./lottiefiles/120673-goods-recycling.json")
+        st_lottie(lottie_recycle_icon2, height=100, key="recycle_icon2")
+    with title_col:
+        st.title("Ready to Recycle")
     upload_col, map_col = st.columns(2)
     with upload_col:
-        ottie_upload = load_lottiefile("./lottiefiles/565-camera.json")
-        st_lottie(ottie_upload, height=10, key="upload_icon")
-        camera_image_file = st.camera_input("Take a picture")
-        image_file = st.file_uploader("Upload an image",type=["png","jpg","jpeg"])
-        if image_file is not None:
-            detectionprocess(image_file)
+        camera_image_file = st.camera_input("📸Take a picture")
+        image_file = st.file_uploader("📤Upload an image",type=["png","jpg","jpeg"])
+        def feedback(found):
+            if found is not None:
+                submit_item_form(found) 
         if camera_image_file:
-            detectionprocess(camera_image_file)
+            found = detectionprocess(camera_image_file)
+            feedback(found)
+        if image_file is not None:
+            found = detectionprocess(image_file)
+            feedback(found)
+        
+
     with map_col:
-        func_for_map_feature()
+        pass
+        # func_for_map_feature()
         # if image_file is not None or camera_image_file:
         #     img = PIL.Image.open("Inference/current.jpg")
         #     exif = {
@@ -336,7 +431,7 @@ def main():
         #     nearestcentre(centre_loc)
         #     st_folium(map)
         #     listnearestcentre(centre_loc)
-
+    feedback_form()
 
 if __name__ == "__main__":
     main()
