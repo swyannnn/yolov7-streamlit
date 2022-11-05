@@ -11,7 +11,7 @@ deta = Deta(st.secrets["deta_key"])
 # This is how to create/connect a database
 db = deta.Base("users_db")
 
-class Deta():
+class Detafunc():
     def insert_user(username):
         """Returns the user on a successful user creation, otherwise raises and error"""
         return db.put({"key": username, "point" : 0})
@@ -29,7 +29,7 @@ class Deta():
         """Always returns None, even if the key does not exist"""
         return db.delete(username)
 
-users = Deta.fetch_all_users()
+users = Detafunc.fetch_all_users()
 usernames = [user["key"] for user in users]
 
 class Authenticator():
@@ -63,7 +63,7 @@ class Authenticator():
         username = login_user_form.text_input('Username').lower()
         if login_user_form.form_submit_button('Login'):
             if username in usernames:
-                info = Deta.get_user(username)
+                info = Detafunc.get_user(username)
                 st.session_state['authentication_status'] = True
                 st.session_state['key'] = info['key']
             else:

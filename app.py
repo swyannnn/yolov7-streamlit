@@ -6,7 +6,7 @@ from streamlit_lottie import st_lottie
 import json
 from PIL import Image
 from general import user_status
-from general import Deta
+from general import Detafunc
 import os
 import argparse
 import cv2
@@ -40,8 +40,8 @@ st.set_page_config(
 )
 
 with st.sidebar:
-    choose = option_menu("Welcome", ["Introduction", "Recycle", "Leaderboard"],
-                         icons=['emoji-smile', 'recycle', 'clipboard-data'],
+    choose = option_menu("Welcome", ["Introduction", "Map", "Recycle", "Leaderboard",'Feedback'],
+                         icons=['emoji-smile', 'map', 'recycle', 'clipboard-data','pencil-square'],
                          menu_icon="app-indicator", default_index=0,
                          styles={
         "container": {"padding": "5!important", "background-color": "#fafafa"},
@@ -50,23 +50,45 @@ with st.sidebar:
         "nav-link-selected": {"background-color": "#02ab21"},
     }
     )
+if choose == "Feedback":
+        st.header(":mailbox: Get In Touch With Me!")
+
+        contact_form = """
+        <form action="https://formsubmit.co/seow.w22@kinghenryviii.edu.my" method="POST">
+            <input type="hidden" name="_captcha" value="false">
+            <input type="text" name="name" placeholder="Your name" required>
+            <input type="email" name="email" placeholder="Your email" required>
+            <textarea name="message" placeholder="Your message here"></textarea>
+            <button type="submit">Send</button>
+        </form>
+        """
+
+        st.markdown(contact_form, unsafe_allow_html=True)
+
+        # Use Local CSS File
+        def local_css(file_name):
+            with open(file_name) as f:
+                st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+
+        local_css("style/style.css")
 
 if choose == "Leaderboard":
     user_status()
-    # deta = Deta(st.secrets["deta_key"])
-    DETA_KEY="c02438ym_H2yB9nr6ho7bCBabFs8D8ecLLqTnpy5C"
-    # Initialize with a project key
-    deta = Deta(DETA_KEY)
+    deta = Deta(st.secrets["deta_key"])
+    # DETA_KEY="c02438ym_H2yB9nr6ho7bCBabFs8D8ecLLqTnpy5C"
+    # # Initialize with a project key
+    # deta = Deta(DETA_KEY)
     # This is how to create/connect a database
     db = deta.Base("users_db")
     
-    class Deta():
+    class Detafunc():
         def fetch_all_users():
             """Returns a dict of all users"""
             res = db.fetch()
             return res.items
     
-    users = Deta.fetch_all_users()
+    users = Detafunc.fetch_all_users()
 
     keys = [user["key"] for user in users]
     points = [user["point"] for user in users]
@@ -216,7 +238,7 @@ if choose == "Introduction":
     with col2:
         st_lottie(lottie_questionman, height=200, key="questionman")
     
-if choose == "Recycle":
+if choose == "Map":
     user_status()
     def centredata():
         centres = pd.read_csv('centredata2.csv')
@@ -267,7 +289,7 @@ if choose == "Recycle":
 
         return map
     # find and plot nearest centre from user
-    def nearestcentre(map,latitude,longitude):
+    def top5nearestcentre(map,latitude,longitude):
         # read csv file
         centre_loc=pd.read_csv('centredata2.csv')
 
@@ -306,7 +328,7 @@ if choose == "Recycle":
                 x+=1
         return centre_loc
     # listing the 5 nearest centre from user's location on map
-    def listnearestcentre(centre_loc):
+    def listtop5nearestcentre(centre_loc):
         x = 1
         for index, row in centre_loc.iterrows(): 
             if x <= 5:
@@ -325,16 +347,20 @@ if choose == "Recycle":
             st.subheader('Top 5 nearest recycle centre from your current location (Informations attached below)')
             link = 'Click [HERE](https://ewaste.doe.gov.my/index.php/about/list-of-collectors/) to know more details about all the government proved E-waste recycling centre in Malaysia'
             st.markdown(link,unsafe_allow_html=True)
-            centre_loc = nearestcentre(map,latitude,longitude)
+            centre_loc = top5nearestcentre(map,latitude,longitude)
             st_folium(map)
-            listnearestcentre(centre_loc)
+            listtop5nearestcentre(centre_loc)
         else:
             st.subheader("Government proved recycling centre in Malaysia")
             link = 'Click [HERE](https://ewaste.doe.gov.my/index.php/about/list-of-collectors/) to know more details about all the government proved E-waste recycling centre in Malaysia'
             st.markdown(link,unsafe_allow_html=True)
             centredata()
         return True
+    func_for_map_feature()
 
+if choose == "Recycle":
+    user_status()
+    
     # Initialize
     @st.cache(show_spinner=False)
     def initialize(device):
@@ -475,11 +501,66 @@ if choose == "Recycle":
     deta3 = Deta(st.secrets["deta_key3"])
     # This is how to create/connect a database
     db3 = deta3.Drive("users_submit")
+    
+    # create a button to access user's location
+    def permissionbutton1():
+        loc_button = Button(label='Click to fill in your submit form')
+        loc_button.js_on_event("button_click", CustomJS(code="""
+            navigator.geolocation.getCurrentPosition(
+                (loc) => {
+                    document.dispatchEvent(new CustomEvent("GET_LOCATION", {detail: {lat: loc.coords.latitude, lon: loc.coords.longitude}}))
+                }
+            )
+            """))
 
-    def submit_item_form(found):
-        submit_item_form = st.form('Submit Item')
+        result = streamlit_bokeh_events(
+            loc_button,
+            events="GET_LOCATION",
+            key="get_location",
+            refresh_on_update=False,
+            override_height=50,
+            debounce_time=0)
+        return result
+    # getting user's location when he/she allows 
+    def getuserlocation(result):
+        latitude = result.get("GET_LOCATION")['lat']
+        longitude = result.get("GET_LOCATION")['lon']
+        return latitude,longitude
+    # ask user to click on the button so we can access their current location
+    # check if they are nearby any recycle centre
+    def distance_companyname(latitude,longitude):
+        # read csv file
+        centre_loc=pd.read_csv('centredata2.csv')
+        # zip data for each column
+        centre_loc['coor'] = list(zip(centre_loc.Latitude, centre_loc.Longitude))
+        # function to obtain distance between user's and centre's locations
+        def distance_from(loc1,loc2): 
+            distance=hs.haversine(loc1,loc2)
+            return round(distance,1)
+        # make a list to record the distances
+        distance = list()
+        for _,row in centre_loc.iterrows():
+            distance.append(distance_from(row.coor,(latitude,longitude)))
+        # assigning data in list to each columns
+        centre_loc['distance']=distance
+        centre_loc = centre_loc.sort_values(by=['distance'])
+        # chosen_centrename = centre_loc.head(1)['CompanyName']
+        # chosen_centre_distance = centre_loc.head(1)['distance']
+        chosen_centrename = centre_loc['CompanyName'].iloc[0]
+        chosen_centre_distance = centre_loc['distance'].iloc[0]
+        st.text(chosen_centre_distance)
+        return chosen_centrename, chosen_centre_distance
+    def complete_user_location():
+        result = permissionbutton1()
+        if result:
+            latitude,longitude = getuserlocation(result)
+            chosen_centrename, chosen_centre_distance = distance_companyname(latitude,longitude)
+            return chosen_centrename, chosen_centre_distance
+        else:
+            st.write('Want to gain point for recycling your E-waste? Click the button above.')
+    def submit_item_form(found, chosen_centrename, chosen_centre_distance):
+        submit_item_form = st.form('Submit E-waste')
         submit_item_form.subheader('I want to recycle this item')
-        # username = submit_item_form.text_input('Username').lower()
         yesorno =  submit_item_form.radio(
             "Did I detect your electronic item correctly?",
             (f'Yes💯, it is {found}!', 'No☹️'))
@@ -499,15 +580,16 @@ if choose == "Recycle":
                                 'Printer',
                                 'Washing Machine'
                                 'Others'])
+        db2.put({"key": st.session_state['key'], "accuracy": yesorno, "if_no": if_no})
         if submit_item_form.form_submit_button('Submit'):
-            db2.put({"key": st.session_state['key'], "accuracy": yesorno, "if_no": if_no})
             if found is not None:
-                db3.put(f"{st.session_state['key']}--correct.jpg", path="Inference/result.jpg")
-                current_point = Deta.get_user(f"{st.session_state['key']}")['point']
-                Deta.update_user(f"{st.session_state['key']}", updates={"point":current_point+2})
-
+                if chosen_centre_distance < 15.0:
+                    db3.put(f"{st.session_state['key']}--correct--{chosen_centrename}.jpg", path="Inference/result.jpg")
+                    user_current_point = Detafunc.get_user(f"{st.session_state['key']}")['point']
+                    Detafunc.update_user(f"{st.session_state['key']}", updates={"point":user_current_point+2})
             else:
-                db3.put(f"{st.session_state['key']}--wrong--{if_no}.jpg", path="Inference/current.jpg")
+                db3.put(f"{st.session_state['key']}--wrong--{if_no}--{chosen_centrename}.jpg", path="Inference/current.jpg")
+
 
     # Load the environment variables
     deta2 = Deta(st.secrets["deta_key2"])
@@ -525,7 +607,6 @@ if choose == "Recycle":
         with open(os.path.join("Inference/current.jpg"),"wb") as f:
             f.write(uploadedfile.getbuffer())
         return True
-
     def download_result_image():
         with open("Inference/result.jpg", "rb") as file:
             btn = st.download_button(
@@ -535,8 +616,6 @@ if choose == "Recycle":
                     mime="image/png")
             return btn
 
-    # detect whether there is electronic items in the image using "detect" function
-    # if nothing found, st.text('nothing detected')
     def detectionprocess(image_file):
         save_uploadedfile(image_file)
         # process and display result image, return bbox_count
@@ -547,31 +626,10 @@ if choose == "Recycle":
             found = detect(image_file, pt_list[pt_index])
             pt_index += 1
         if found is None and pt_index == len(pt_list):
-            st.text('nothing detected')
+            st.text('So sorry, we cannot detect anything in the picture')
+            st.text('1) Take a new picture and try again')
+            st.text('2) Tell us what E-waste is in the picture, and we will get back to you in 48 hours.')
         return found
-
-    def feedback_form():
-        st.header(":mailbox: Get In Touch With Me!")
-
-        contact_form = """
-        <form action="https://formsubmit.co/seow.w22@kinghenryviii.edu.my" method="POST">
-            <input type="hidden" name="_captcha" value="false">
-            <input type="text" name="name" placeholder="Your name" required>
-            <input type="email" name="email" placeholder="Your email" required>
-            <textarea name="message" placeholder="Your message here"></textarea>
-            <button type="submit">Send</button>
-        </form>
-        """
-
-        st.markdown(contact_form, unsafe_allow_html=True)
-
-        # Use Local CSS File
-        def local_css(file_name):
-            with open(file_name) as f:
-                st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-
-        local_css("style/style.css")
 
     @st.experimental_memo
     def load_lottiefile(filepath: str):
@@ -599,27 +657,38 @@ if choose == "Recycle":
             st_lottie(lottie_recycle_icon2, height=100, key="recycle_icon2")
         with title_col:
             st.title("Ready to Recycle")
-        upload_col, map_col = st.columns(2)
-        with upload_col:
-            st.write('Guidance to gain point(s) from recycling your E-waste:')
-            st.write('3) Make sure you have signed in your account.')
-            st.write('2) Make sure you are taking picture around any E-waste collection centre listed in the map. (Because we will need to verify your location)')
-            st.write('3) Take a CLEAR  picture of your E-waste')
-            st.write('4) Fill in the submit form.')
-            st.write('5) You are done! We will update your game point(s) in 48 hours.')
-            camera_image_file = st.camera_input("📸Take a picture")
-            image_file = st.file_uploader("📤Upload an image",type=["png","jpg","jpeg"])
-            if camera_image_file:
-                found = detectionprocess(camera_image_file)
-                submit_item_form(found)
-            if image_file is not None:
-                found = detectionprocess(image_file)
-                submit_item_form(found)
+        # upload_col, map_col = st.columns(2)
+        # with upload_col:
+        st.write('Guidance to gain point(s) from recycling your E-waste:')
+        st.write('3) Make sure you have signed in your account.')
+        st.write('2) Make sure you are taking picture around any E-waste collection centre listed in the map. (Because we will need to verify your location)')
+        st.write('3) Take a CLEAR picture of your E-waste')
+        st.write('4) Fill in the submit form.')
+        st.write('5) You are done! We will update your game point(s) in 48 hours.')
+        camera_image_file = st.camera_input("📸Take a picture")
+        image_file = st.file_uploader("📤Upload an image",type=["png","jpg","jpeg"])
+        if camera_image_file:
+            found = detectionprocess(camera_image_file)
+            result = permissionbutton1()
+            if result:
+                latitude,longitude = getuserlocation(result)
+                chosen_centrename, chosen_centre_distance = distance_companyname(latitude,longitude)
+                submit_item_form(found, chosen_centrename, chosen_centre_distance)
+            else:
+                st.write('Want to gain point for recycling your E-waste? Click the button above.')
+        if image_file is not None:
+            found = detectionprocess(image_file)
+            result = permissionbutton1()
+            if result:
+                latitude,longitude = getuserlocation(result)
+                chosen_centrename, chosen_centre_distance = distance_companyname(latitude,longitude)
+                submit_item_form(found, chosen_centrename, chosen_centre_distance)
+            else:
+                st.write('Want to gain point for recycling your E-waste? Click the button above.')
             
 
-        with map_col:
-            func_for_map_feature()
-        feedback_form()
+        # with map_col:
+        #     func_for_map_feature()
 
     if __name__ == "__main__":
         main()
